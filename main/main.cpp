@@ -33,6 +33,7 @@ private:
     PLogicalDevice mLogicalDevice;
     VkQueue mQueueHandle;
     PSwapChain mSwapChain;
+    std::vector<PImageView> mSwapChainImageViews;
     const bool mEnableValidationLaryers = true;
     
     void InitWindow() {
@@ -215,6 +216,25 @@ private:
             mLogicalDevice, mSurface, createInfo);
     }
 
+    void CreateImageView() {
+        const auto & images = mSwapChain->GetImages();
+        for (const auto & image : images) {
+            Image::ImageViewCreateInfo createInfo;
+            createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+            createInfo.format = VK_FORMAT_UNDEFINED;
+            createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+            createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+            createInfo.subresourceRange.baseMipLevel = 0;
+            createInfo.subresourceRange.levelCount = 1;
+            createInfo.subresourceRange.baseArrayLayer = 0;
+            createInfo.subresourceRange.layerCount = 1;
+            mSwapChainImageViews.push_back(image.CreateImageView(createInfo));
+        }
+    }
+
     void Init() {
         InitWindow();
         CreateInstance();
@@ -222,6 +242,7 @@ private:
         PickPhysicalDevices();
         CreateLogicalDevice();
         CreateSwapChain();
+        CreateImageView();
     }
 
     void MainLoop() {

@@ -21,3 +21,6 @@ typedef std::shared_ptr<LogicalDevice> PLogicalDevice;
 
 class SwapChain;
 typedef std::shared_ptr<SwapChain> PSwapChain;
+
+class ImageView;
+typedef std::shared_ptr<ImageView> PImageView;

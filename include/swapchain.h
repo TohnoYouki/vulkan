@@ -1,15 +1,14 @@
 #pragma once
 #include <vector>
+#include "image.h"
 #include "device.h"
 #include "surface.h"
+#include <vulkan/vulkan.h>
 
 class SwapChain {
 private:
-    VkExtent2D mImageExtent;
-    VkFormat mImageFormat;
-
     VkSwapchainKHR mSwapChain;
-    std::vector<VkImage> mImages;
+    std::vector<Image> mImages;
     PLogicalDevice mDevice = VK_NULL_HANDLE;
     
     SwapChain(const PLogicalDevice & device, 
@@ -20,7 +19,13 @@ private:
     SwapChain(SwapChain &&) = delete;
     SwapChain & operator=(SwapChain &&) = delete;
 
+    static Image::ImageCreateInfo GetImageCreateInfo(
+        const VkSwapchainCreateInfoKHR & createInfo);
+
 public:
+    inline const std::vector<Image> & GetImages() const { 
+        return mImages; }
+
     struct CreateParams {
         uint32_t imageCount;
         VkExtent2D extent;

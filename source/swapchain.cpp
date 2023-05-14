@@ -6,12 +6,36 @@ SwapChain::SwapChain(
     const VkSwapchainCreateInfoKHR & createInfo) {
     mDevice = device;
     mSwapChain = swapChain;
-    mImageFormat = createInfo.imageFormat;
-    mImageExtent = createInfo.imageExtent;
     uint32_t count;
     vkGetSwapchainImagesKHR(*mDevice, mSwapChain, &count, nullptr);
-    mImages.resize(count);
-    vkGetSwapchainImagesKHR(*mDevice, mSwapChain, &count, mImages.data());
+    std::vector<VkImage> images(count);
+    vkGetSwapchainImagesKHR(*mDevice, mSwapChain, &count, images.data());
+    auto imageInfo = SwapChain::GetImageCreateInfo(createInfo);
+    for (const auto & image : images) {
+        mImages.emplace_back(Image(mDevice, image, imageInfo));
+    }
+}
+
+Image::ImageCreateInfo SwapChain::GetImageCreateInfo(
+    const VkSwapchainCreateInfoKHR & createInfo) {
+    Image::ImageCreateInfo result;
+    result.imageType = VK_IMAGE_TYPE_2D;
+    result.usage = createInfo.imageUsage;
+    result.tiling = VK_IMAGE_TILING_OPTIMAL;
+    result.sharingMode = createInfo.imageSharingMode;
+    result.samples = VK_SAMPLE_COUNT_1_BIT;
+    uint32_t count = createInfo.queueFamilyIndexCount;
+    for (int i = 0; i < count; i++) {
+        result.queues.push_back(*(createInfo.pQueueFamilyIndices + i));
+    }
+    result.mipLevels = 1;
+    result.initialLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    result.format = createInfo.imageFormat;
+    result.extent.width = createInfo.imageExtent.width;
+    result.extent.height = createInfo.imageExtent.height;
+    result.extent.depth = 1;
+    result.arrayLayers = 1;
+    return result;
 }
 
 VkSwapchainCreateInfoKHR SwapChain::DefaultCreateInfo( 
