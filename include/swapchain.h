@@ -1,32 +1,29 @@
 #pragma once
-#include <vector>
+#include "core.h"
 #include "image.h"
-#include "device.h"
-#include "surface.h"
+#include <vector>
 #include <vulkan/vulkan.h>
 
 class SwapChain {
 private:
-    VkSwapchainKHR mSwapChain;
-    std::vector<Image> mImages;
-    PLogicalDevice mDevice = VK_NULL_HANDLE;
-    
-    SwapChain(const PLogicalDevice & device, 
-              const VkSwapchainKHR & swapChain,
-              const VkSwapchainCreateInfoKHR & createInfo);
-    SwapChain(const SwapChain &) = delete;
-    SwapChain & operator=(const SwapChain &) = delete;
-    SwapChain(SwapChain &&) = delete;
-    SwapChain & operator=(SwapChain &&) = delete;
+    VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
+    const LogicalDevice* mDevice = nullptr;
+    std::vector<PImage> mImages;
 
-    static Image::ImageCreateInfo GetImageCreateInfo(
-        const VkSwapchainCreateInfoKHR & createInfo);
+    SwapChain(const LogicalDevice* device,
+              VkSwapchainKHR swapChain,
+              const VkSwapchainCreateInfoKHR& createInfo);
+    SwapChain(const SwapChain&) = delete;
+    SwapChain& operator=(const SwapChain&) = delete;
+    SwapChain(SwapChain&&) = delete;
+    SwapChain& operator=(SwapChain&&) = delete;
 
+    Image::ImageCreateInfo GetImageCreateInfo(
+        const VkSwapchainCreateInfoKHR& createInfo);
 public:
-    inline const std::vector<Image> & GetImages() const { 
-        return mImages; }
+    inline const std::vector<PImage>& GetImages() const { return mImages; }
 
-    struct CreateParams {
+    struct SwapChainCreateParams {
         uint32_t imageCount;
         VkExtent2D extent;
         VkPresentModeKHR presentMode;
@@ -36,13 +33,13 @@ public:
     };
 
     static VkSwapchainCreateInfoKHR DefaultCreateInfo(
-        const PSurface & surface, 
-        const CreateParams & params);
+        const Surface* surface,
+        const SwapChainCreateParams& params);
 
     static PSwapChain CreateSwapChain(
-        const PLogicalDevice & device, 
-        const PSurface & surface,
-        const VkSwapchainCreateInfoKHR & createInfo);
-    
+        const LogicalDevice* device,
+        const Surface* surface,
+        const VkSwapchainCreateInfoKHR& createInfo);
+
     ~SwapChain();
 };

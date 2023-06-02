@@ -1,23 +1,7 @@
 #pragma once
 #include "core.h"
 #include <vector>
-#include "device.h"
 #include <vulkan/vulkan.h>
-
-class ImageView {
-private:
-    PLogicalDevice mDevice = nullptr;
-    VkImageView mImageView;
-    friend class Image;
-    
-    ImageView(const PLogicalDevice & device, const VkImageView & view);
-    ImageView(const ImageView &) = delete;
-    ImageView & operator=(const ImageView &) = delete;
-    ImageView(ImageView &&) = delete;
-    ImageView & operator=(ImageView &&) = delete;
-public: 
-    ~ImageView();
-};
 
 class Image {
 public:
@@ -41,13 +25,29 @@ public:
         VkImageSubresourceRange subresourceRange;
     };
     friend class SwapChain;
-
-    PImageView CreateImageView(const ImageViewCreateInfo & info) const;
 private:
-    VkImage mImage;
-    PLogicalDevice mDevice;
+    VkImage mImage = VK_NULL_HANDLE;
+    const LogicalDevice * mDevice = nullptr;
     ImageCreateInfo mInfo;
 
-    Image(const PLogicalDevice & device, 
-          const VkImage & image, const ImageCreateInfo & info);
+    Image(const LogicalDevice * device, VkImage image, const ImageCreateInfo& info);
+public:
+    PImageView CreateImageView(const ImageViewCreateInfo& info) const;
+
+    ~Image();
+};
+
+class ImageView {
+private:
+    const LogicalDevice * mDevice = nullptr;
+    VkImageView mImageView;
+    friend class Image;
+
+    ImageView(const LogicalDevice * device, VkImageView view);
+    ImageView(const ImageView&) = delete;
+    ImageView& operator=(const ImageView&) = delete;
+    ImageView(ImageView&&) = delete;
+    ImageView& operator=(ImageView&&) = delete;
+public:
+    ~ImageView();
 };

@@ -2,25 +2,27 @@
 #include <memory>
 #include <vulkan/vulkan.h>
 
-class DebugModes;
-class Environment;
-
 class Instance;
-typedef std::shared_ptr<Instance> PInstance;
+typedef std::unique_ptr<Instance> PInstance;
+
+class DebugMessenger;
+typedef std::unique_ptr<DebugMessenger> PDebugMessenger;
 
 class Surface;
-typedef std::shared_ptr<Surface> PSurface;
+typedef std::unique_ptr<Surface> PSurface;
 typedef VkResult SurfaceCreateFn(
-    VkInstance instance, void * window, VkSurfaceKHR * surface);
+    VkInstance instance, void* window, VkSurfaceKHR* surface);
 
 class PhysicalDevice;
-typedef std::shared_ptr<PhysicalDevice> PPhysicalDevice;
+typedef std::unique_ptr<PhysicalDevice> PPhysicalDevice;
 
 class LogicalDevice;
-typedef std::shared_ptr<LogicalDevice> PLogicalDevice;
+typedef std::unique_ptr<LogicalDevice> PLogicalDevice;
 
 class SwapChain;
-typedef std::shared_ptr<SwapChain> PSwapChain;
+typedef std::unique_ptr<SwapChain> PSwapChain;
 
+class Image;
+typedef std::unique_ptr<Image> PImage;
 class ImageView;
-typedef std::shared_ptr<ImageView> PImageView;
+typedef std::unique_ptr<ImageView> PImageView;
