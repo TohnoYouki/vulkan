@@ -1,30 +1,19 @@
 #include "surface.h"
+#include "instance.h"
+#include "physicaldevice.h"
 
-Surface::Surface(
-    const PInstance & instance, const VkSurfaceKHR & surface) {
-    mInstance = instance;
-    mSurface = surface;
+Surface::Surface(const Instance* instance, VkSurfaceKHR surface) :
+    mInstance(instance), mSurface(surface) {}
+
+bool Surface::PhysicalDeviceSupport(
+    const PhysicalDevice* device, int family) const {
+    VkBool32 result;
+    vkGetPhysicalDeviceSurfaceSupportKHR(*device, family, mSurface, &result);
+    return static_cast<bool>(result);
 }
 
-PSurface Surface::CreateSurface(
-    const PInstance & instance, void * window, SurfaceCreateFn fn) {
-    VkSurfaceKHR surface;
-    auto result = fn(*instance, window, &surface);
-    if (result != VK_SUCCESS) { return VK_NULL_HANDLE; }
-    return PSurface(new Surface(instance, surface));
-}
-
-bool Surface::GetPhysicalDeviceSupport(
-    const PPhysicalDevice & device, uint32_t family) const {
-    VkBool32 support;
-    if (vkGetPhysicalDeviceSurfaceSupportKHR(
-        *device, family, mSurface, &support) != VK_SUCCESS)
-        support = false;
-    return support;
-}
-
-Surface::SwapChainSupportDetails Surface::GetSwapChainSupportDetails(
-    const PPhysicalDevice & device) const {
+Surface::SwapChainSupportDetails 
+Surface::GetSwapChainSupportDetails(const PhysicalDevice* device) const {
     SwapChainSupportDetails result;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(
         *device, mSurface, &result.capabilities);
@@ -40,8 +29,16 @@ Surface::SwapChainSupportDetails Surface::GetSwapChainSupportDetails(
     return result;
 }
 
+PSurface Surface::CreateSurface(
+    const Instance* instance, void* window, SurfaceCreateFn fn) {
+    VkSurfaceKHR surface;
+    auto result = fn(*instance, window, &surface);
+    if (result != VK_SUCCESS) { nullptr; }
+    return PSurface(new Surface(instance, surface));
+}
+
 Surface::~Surface() {
-    if (mInstance != nullptr && mSurface != VK_NULL_HANDLE) {
-        vkDestroySurfaceKHR(*mInstance, mSurface, nullptr); 
+    if (mSurface != VK_NULL_HANDLE) {
+        vkDestroySurfaceKHR(*mInstance, mSurface, nullptr);
     }
 }
