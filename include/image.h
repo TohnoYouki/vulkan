@@ -41,13 +41,17 @@ class ImageView {
 private:
     const LogicalDevice * mDevice = nullptr;
     VkImageView mImageView;
+    Image::ImageViewCreateInfo mInfo;
     friend class Image;
 
-    ImageView(const LogicalDevice * device, VkImageView view);
+    ImageView(const LogicalDevice * device, VkImageView view, 
+              const Image::ImageViewCreateInfo& info);
     ImageView(const ImageView&) = delete;
     ImageView& operator=(const ImageView&) = delete;
     ImageView(ImageView&&) = delete;
     ImageView& operator=(ImageView&&) = delete;
 public:
+    const Image::ImageViewCreateInfo& ImageViewInfo() const;
+
     ~ImageView();
 };

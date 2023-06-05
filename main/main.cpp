@@ -6,12 +6,16 @@
 #include <optional> 
 #include <stdexcept>
 #include <algorithm>
+#include "shader.h"
 #include "surface.h"
 #include "instance.h"
 #include "environment.h"
 #include "physicaldevice.h"
 #include "logicaldevice.h"
 #include "swapchain.h"
+#include "renderpass.h"
+#include "pipelinelayout.h"
+#include "pipeline.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
@@ -36,6 +40,9 @@ private:
     PLogicalDevice mLogicalDevice = nullptr;
     PSwapChain mSwapChain = nullptr;
     std::vector<PImageView> mSwapChainImageViews;
+    PRenderPass mRenderPass = nullptr;
+    PPipelineLayout mPipelineLayout = nullptr;
+    PGraphicsPipeline mGraphicsPipeline = nullptr;
 
     const bool mEnableValidationLaryers = true;
 
@@ -217,6 +224,9 @@ private:
         auto createInfo = SwapChain::DefaultCreateInfo(mSurface.get(), params);
         mSwapChain = SwapChain::CreateSwapChain(
             mLogicalDevice.get(), mSurface.get(), createInfo);
+        if (mSwapChain == nullptr) {
+            throw std::runtime_error("failed to create a swap chain!");
+        }
     }
 
     void CreateImageViews() {
@@ -232,7 +242,181 @@ private:
                 .subresourceRange = { .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
                                       .baseMipLevel = 0, .levelCount = 1,
                                       .baseArrayLayer = 0, .layerCount = 1 } };
-            mSwapChainImageViews.push_back(image->CreateImageView(createInfo));
+            PImageView view = image->CreateImageView(createInfo);
+            if (view == nullptr) {
+                throw std::runtime_error("failed to create an image view!");
+            }
+            mSwapChainImageViews.push_back(std::move(view));
+        }
+    }
+
+    void CreateRenderPass() {
+        std::vector<VkAttachmentDescription> attachments {
+            VkAttachmentDescription {
+                .flags = 0, 
+                .format = mSwapChainImageViews[0]->ImageViewInfo().format,
+                .samples = VK_SAMPLE_COUNT_1_BIT,
+                .loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+                .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+                .stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+                .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+                .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+                .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR
+        }};
+        std::vector<VkAttachmentReference> refs {
+            VkAttachmentReference {
+                .attachment = 0,
+                .layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+        }};
+        std::vector<VkSubpassDescription> subpasses {
+            VkSubpassDescription {
+                .flags = 0,
+                .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS,
+                .inputAttachmentCount = 0, .pInputAttachments = nullptr,
+                .colorAttachmentCount = 1, .pColorAttachments = refs.data(),
+                .pResolveAttachments = nullptr, .pDepthStencilAttachment = nullptr,
+                .preserveAttachmentCount = 0, .pPreserveAttachments = nullptr 
+        }};
+        mRenderPass = RenderPass::CreateRenderPass(
+            mLogicalDevice.get(), attachments, subpasses);
+        if (mRenderPass == nullptr) {
+            throw std::runtime_error("failed to create a render pass!");
+        }
+    }
+
+    void CreatePipelineLayout() {
+        mPipelineLayout = PipelineLayout::CreatePipelineLayout(mLogicalDevice.get());
+        if (mPipelineLayout == nullptr) {
+            throw std::runtime_error("failed to create a pipeline layout");
+        }
+    }
+
+    void CreateGraphicPipeline() {
+        auto vertex = ShaderModule::CreateShaderModule(
+            mLogicalDevice.get(), "./spv/shader_vert.spv");
+        auto fragment = ShaderModule::CreateShaderModule(
+            mLogicalDevice.get(), "./spv/shader_frag.spv"); 
+        if (vertex == nullptr || fragment == nullptr) {
+            throw std::runtime_error("failed to load shader module!");
+        }
+        std::vector<VkPipelineShaderStageCreateInfo> shaderStages 
+            { vertex->GetStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT), 
+              fragment->GetStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT) };
+
+        VkPipelineVertexInputStateCreateInfo vertexInput {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+            .pNext = nullptr, .flags = 0,
+            .vertexBindingDescriptionCount = 0,
+            .pVertexBindingDescriptions = nullptr,
+            .vertexAttributeDescriptionCount = 0,
+            .pVertexAttributeDescriptions = nullptr 
+        };
+        VkPipelineInputAssemblyStateCreateInfo inputAssembly {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+            .pNext = nullptr, .flags = 0,
+            .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            .primitiveRestartEnable = VK_FALSE
+        };
+        std::vector<VkViewport> viewports {
+            VkViewport {
+                .x = 0.0f, .y = 0.0f,
+                .width = static_cast<float>(mSwapChain->ImageInfo().extent.width), 
+                .height = static_cast<float>(mSwapChain->ImageInfo().extent.height),
+                .minDepth = 0.0f, .maxDepth = 1.0f
+            }
+        };
+        std::vector<VkRect2D> scissors {
+            VkRect2D {
+                .offset = {0, 0}, 
+                .extent = VkExtent2D{
+                    .width = mSwapChain->ImageInfo().extent.width,
+                    .height = mSwapChain->ImageInfo().extent.height
+        }}};
+        VkPipelineViewportStateCreateInfo viewState {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+            .pNext = nullptr, .flags = 0,
+            .viewportCount = static_cast<uint32_t>(viewports.size()), 
+            .pViewports = viewports.data(),
+            .scissorCount = static_cast<uint32_t>(scissors.size()), 
+            .pScissors = scissors.data()
+        };
+        VkPipelineRasterizationStateCreateInfo rasterization {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+            .pNext = nullptr, .flags = 0,
+            .depthClampEnable = VK_FALSE,
+            .rasterizerDiscardEnable = VK_FALSE,
+            .polygonMode = VK_POLYGON_MODE_FILL,
+            .cullMode = VK_CULL_MODE_BACK_BIT,
+            .frontFace = VK_FRONT_FACE_CLOCKWISE,
+            .depthBiasEnable = false,
+            .depthBiasConstantFactor = 0.0f,
+            .depthBiasClamp = 0.0f,
+            .depthBiasSlopeFactor = 0.0f,
+            .lineWidth = 1.0f
+        };
+        VkPipelineMultisampleStateCreateInfo multisample {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+            .pNext = nullptr, .flags = 0,
+            .rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+            .sampleShadingEnable = VK_FALSE,
+            .minSampleShading = 1.0f,
+            .pSampleMask = nullptr,
+            .alphaToCoverageEnable = VK_FALSE,
+            .alphaToOneEnable = VK_FALSE
+        };
+        std::vector<VkPipelineColorBlendAttachmentState> attachmentBlends {
+            VkPipelineColorBlendAttachmentState {
+                .blendEnable = VK_TRUE,
+                .srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA,
+                .dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+                .colorBlendOp = VK_BLEND_OP_ADD,
+                .srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE,
+                .dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO,
+                .alphaBlendOp = VK_BLEND_OP_ADD,
+                .colorWriteMask = VK_COLOR_COMPONENT_R_BIT | 
+                                  VK_COLOR_COMPONENT_G_BIT | 
+                                  VK_COLOR_COMPONENT_B_BIT | 
+                                  VK_COLOR_COMPONENT_A_BIT
+            }
+        };
+        VkPipelineColorBlendStateCreateInfo colorblend {
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+            .pNext = nullptr, .flags = 0,
+            .logicOpEnable = VK_FALSE, .logicOp = VK_LOGIC_OP_COPY,
+            .attachmentCount = static_cast<uint32_t>(attachmentBlends.size()), 
+            .pAttachments = attachmentBlends.data(),
+            .blendConstants = {0.0, 0.0, 0.0, 0.0}
+        };
+        std::vector<VkDynamicState> dynamicStates = {
+            VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR 
+        };
+        VkPipelineDynamicStateCreateInfo dynamicState{
+            .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+            .dynamicStateCount = static_cast<uint32_t>(dynamicStates.size()),
+            .pDynamicStates = dynamicStates.data()
+        };
+        VkGraphicsPipelineCreateInfo info {
+            .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+            .pNext = nullptr, .flags = 0,
+            .stageCount = static_cast<uint32_t>(shaderStages.size()),
+            .pStages = shaderStages.data(),
+            .pVertexInputState = &vertexInput,
+            .pInputAssemblyState = &inputAssembly,
+            .pTessellationState = nullptr,
+            .pViewportState = &viewState,
+            .pRasterizationState = &rasterization,
+            .pMultisampleState = &multisample,
+            .pDepthStencilState = nullptr,
+            .pColorBlendState = &colorblend,
+            .pDynamicState = &dynamicState,
+            .layout = *mPipelineLayout,
+            .renderPass = *mRenderPass, .subpass = 0,
+            .basePipelineHandle = VK_NULL_HANDLE, .basePipelineIndex = -1
+        };
+        mGraphicsPipeline = GraphicsPipeline::CreateGraphicsPipeline(
+            mLogicalDevice.get(), info);
+        if (mGraphicsPipeline == nullptr) {
+            throw std::runtime_error("failed to create a graphics pipeline!");
         }
     }
 
@@ -244,6 +428,9 @@ private:
         CreateLogicalDevice();
         CreateSwapChain();
         CreateImageViews();
+        CreateRenderPass();
+        CreatePipelineLayout();
+        CreateGraphicPipeline();
     }
 
     void MainLoop() {

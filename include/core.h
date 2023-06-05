@@ -26,3 +26,15 @@ class Image;
 typedef std::unique_ptr<Image> PImage;
 class ImageView;
 typedef std::unique_ptr<ImageView> PImageView;
+
+class ShaderModule;
+typedef std::unique_ptr<ShaderModule> PShaderModule;
+
+class RenderPass;
+typedef std::unique_ptr<RenderPass> PRenderPass;
+
+class PipelineLayout;
+typedef std::unique_ptr<PipelineLayout> PPipelineLayout;
+
+class GraphicsPipeline;
+typedef std::unique_ptr<GraphicsPipeline> PGraphicsPipeline;

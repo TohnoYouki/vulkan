@@ -9,6 +9,7 @@ private:
     VkSwapchainKHR mSwapChain = VK_NULL_HANDLE;
     const LogicalDevice* mDevice = nullptr;
     std::vector<PImage> mImages;
+    Image::ImageCreateInfo mInfo;
 
     SwapChain(const LogicalDevice* device,
               VkSwapchainKHR swapChain,
@@ -22,6 +23,8 @@ private:
         const VkSwapchainCreateInfoKHR& createInfo);
 public:
     inline const std::vector<PImage>& GetImages() const { return mImages; }
+
+    const Image::ImageCreateInfo& ImageInfo() const;
 
     struct SwapChainCreateParams {
         uint32_t imageCount;

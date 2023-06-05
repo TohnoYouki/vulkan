@@ -12,6 +12,7 @@ SwapChain::SwapChain(
     std::vector<VkImage> images(count);
     vkGetSwapchainImagesKHR(*mDevice, mSwapChain, &count, images.data());
     auto imageInfo = SwapChain::GetImageCreateInfo(createInfo);
+    mInfo = imageInfo;
     for (const auto& image : images) {
         mImages.emplace_back(new Image(mDevice, image, imageInfo));
     }
@@ -36,6 +37,8 @@ Image::ImageCreateInfo SwapChain::GetImageCreateInfo(
     }
     return result;
 }
+
+const Image::ImageCreateInfo& SwapChain::ImageInfo() const { return mInfo; }
 
 VkSwapchainCreateInfoKHR SwapChain::DefaultCreateInfo(
     const Surface* surface,

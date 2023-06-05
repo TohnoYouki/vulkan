@@ -15,7 +15,7 @@ PLogicalDevice LogicalDevice::CreateLogicalDevice(
 	std::map<uint32_t, std::vector<float>> queueInfos;
 	for (int i = 0; i < queues.families.size(); i++) {
 		uint32_t family = queues.families[i];
-		if (!queueInfos.contains(family)) {
+		if (queueInfos.find(family) == queueInfos.end()) {
 			queueInfos.insert(std::make_pair(family, std::vector<float>()));
 		}
 		queueInfos[family].push_back(queues.priorities[i]);
