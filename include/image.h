@@ -19,6 +19,7 @@ public:
         std::vector<uint32_t> queues;
     };
     struct ImageViewCreateInfo {
+        VkExtent2D extent;
         VkImageViewType viewType;
         VkFormat format;
         VkComponentMapping components;
@@ -32,6 +33,7 @@ private:
 
     Image(const LogicalDevice * device, VkImage image, const ImageCreateInfo& info);
 public:
+    inline operator const VkImage& () const { return mImage; }
     PImageView CreateImageView(const ImageViewCreateInfo& info) const;
 
     ~Image();
@@ -51,6 +53,9 @@ private:
     ImageView(ImageView&&) = delete;
     ImageView& operator=(ImageView&&) = delete;
 public:
+    inline operator const VkImageView& () const { return mImageView; }
+
+    const LogicalDevice* GetDevice() const;
     const Image::ImageViewCreateInfo& ImageViewInfo() const;
 
     ~ImageView();

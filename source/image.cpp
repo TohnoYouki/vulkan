@@ -18,7 +18,9 @@ PImageView Image::CreateImageView(const ImageViewCreateInfo& info) const {
     VkImageView view;
     auto res = vkCreateImageView(*mDevice, &createInfo, nullptr, &view);
     if (res != VK_SUCCESS) { return nullptr; }
-    auto pointer = PImageView(new ImageView(mDevice, view, info));
+    ImageViewCreateInfo viewInfo = info;
+    viewInfo.extent = { mInfo.extent.width, mInfo.extent.height };
+    auto pointer = PImageView(new ImageView(mDevice, view, viewInfo));
     pointer->mInfo.format = format;
     return pointer;
 }
@@ -28,6 +30,8 @@ Image::~Image() {}
 ImageView::ImageView(const LogicalDevice* device, VkImageView view,
     const Image::ImageViewCreateInfo& info) :
     mDevice(device), mImageView(view), mInfo(info) {}
+
+const LogicalDevice* ImageView::GetDevice() const { return mDevice; };
 
 const Image::ImageViewCreateInfo& ImageView::ImageViewInfo() const { 
     return mInfo; 

@@ -15,7 +15,8 @@
 #include "swapchain.h"
 #include "renderpass.h"
 #include "pipelinelayout.h"
-#include "pipeline.h"
+#include "graphicspipeline.h"
+#include "framebuffer.h"
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
@@ -43,6 +44,7 @@ private:
     PRenderPass mRenderPass = nullptr;
     PPipelineLayout mPipelineLayout = nullptr;
     PGraphicsPipeline mGraphicsPipeline = nullptr;
+    std::vector<PFrameBuffer> mFramebuffers;
 
     const bool mEnableValidationLaryers = true;
 
@@ -420,6 +422,14 @@ private:
         }
     }
 
+    void CreateFrameBuffers() {
+        for (int i = 0; i < mSwapChainImageViews.size(); i++) {
+            mFramebuffers.push_back(
+                std::move(FrameBuffer::CreateFrameBuffer(
+                mRenderPass.get(), mSwapChainImageViews[i].get())));
+        }
+    }
+
     void Init() {
         InitWindow();
         CreateInstance();
@@ -431,6 +441,7 @@ private:
         CreateRenderPass();
         CreatePipelineLayout();
         CreateGraphicPipeline();
+        CreateFrameBuffers();
     }
 
     void MainLoop() {

@@ -38,3 +38,6 @@ typedef std::unique_ptr<PipelineLayout> PPipelineLayout;
 
 class GraphicsPipeline;
 typedef std::unique_ptr<GraphicsPipeline> PGraphicsPipeline;
+
+class FrameBuffer;
+typedef std::unique_ptr<FrameBuffer> PFrameBuffer;
