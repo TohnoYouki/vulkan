@@ -18,7 +18,7 @@ public:
         std::vector<VkSurfaceFormatKHR> formats;
         std::vector<VkPresentModeKHR> presentModes;
     };
-      
+
     inline operator const VkSurfaceKHR& () const { return mSurface; }
 
     bool PhysicalDeviceSupport(const PhysicalDevice* device, int family) const;

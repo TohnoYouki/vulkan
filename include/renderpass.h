@@ -16,9 +16,10 @@ public:
     inline operator const VkRenderPass& () const { return mRenderPass; }
 
     static PRenderPass CreateRenderPass(
-        const LogicalDevice* device, 
+        const LogicalDevice* device,
         const std::vector<VkAttachmentDescription>& attachments,
-        const std::vector<VkSubpassDescription>& subpasses);
+        const std::vector<VkSubpassDescription>& subpasses,
+        const std::vector<VkSubpassDependency>& dependencies);
 
     ~RenderPass();
 };

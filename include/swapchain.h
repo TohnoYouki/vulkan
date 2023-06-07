@@ -12,8 +12,8 @@ private:
     Image::ImageCreateInfo mInfo;
 
     SwapChain(const LogicalDevice* device,
-              VkSwapchainKHR swapChain,
-              const VkSwapchainCreateInfoKHR& createInfo);
+        VkSwapchainKHR swapChain,
+        const VkSwapchainCreateInfoKHR& createInfo);
     SwapChain(const SwapChain&) = delete;
     SwapChain& operator=(const SwapChain&) = delete;
     SwapChain(SwapChain&&) = delete;
@@ -23,6 +23,7 @@ private:
         const VkSwapchainCreateInfoKHR& createInfo);
 public:
     inline const std::vector<PImage>& GetImages() const { return mImages; }
+    inline operator const VkSwapchainKHR& () const { return mSwapChain; }
 
     const Image::ImageCreateInfo& ImageInfo() const;
 

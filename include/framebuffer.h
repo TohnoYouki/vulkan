@@ -3,7 +3,7 @@
 
 class FrameBuffer {
 private:
-    const LogicalDevice * mDevice = nullptr;
+    const LogicalDevice* mDevice = nullptr;
     VkFramebuffer mFrameBuffer = VK_NULL_HANDLE;
 
     FrameBuffer(const LogicalDevice* device, VkFramebuffer framebuffer);
@@ -15,7 +15,7 @@ public:
     inline operator const VkFramebuffer& () const { return mFrameBuffer; }
 
     static PFrameBuffer CreateFrameBuffer(
-        RenderPass * renderpass, ImageView * view);
+        RenderPass* renderpass, ImageView* view);
 
     ~FrameBuffer();
 };

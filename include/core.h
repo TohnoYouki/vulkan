@@ -41,3 +41,15 @@ typedef std::unique_ptr<GraphicsPipeline> PGraphicsPipeline;
 
 class FrameBuffer;
 typedef std::unique_ptr<FrameBuffer> PFrameBuffer;
+
+class CommandPool;
+typedef std::unique_ptr<CommandPool> PCommandPool;
+
+class CommandBuffer;
+typedef std::unique_ptr<CommandBuffer> PCommandBuffer;
+
+class Semaphore;
+typedef std::unique_ptr<Semaphore> PSemaphore;
+
+class Fence;
+typedef std::unique_ptr<Fence> PFence;

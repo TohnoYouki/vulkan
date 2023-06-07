@@ -15,10 +15,10 @@ public:
     inline operator const VkShaderModule& () const { return mShaderModule; }
 
     static PShaderModule CreateShaderModule(
-        const LogicalDevice* device, const char * path);
+        const LogicalDevice* device, const char* path);
 
     VkPipelineShaderStageCreateInfo GetStageCreateInfo(
         VkShaderStageFlagBits stage) const;
-    
+
     ~ShaderModule();
 };

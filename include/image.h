@@ -28,10 +28,10 @@ public:
     friend class SwapChain;
 private:
     VkImage mImage = VK_NULL_HANDLE;
-    const LogicalDevice * mDevice = nullptr;
+    const LogicalDevice* mDevice = nullptr;
     ImageCreateInfo mInfo;
 
-    Image(const LogicalDevice * device, VkImage image, const ImageCreateInfo& info);
+    Image(const LogicalDevice* device, VkImage image, const ImageCreateInfo& info);
 public:
     inline operator const VkImage& () const { return mImage; }
     PImageView CreateImageView(const ImageViewCreateInfo& info) const;
@@ -41,13 +41,13 @@ public:
 
 class ImageView {
 private:
-    const LogicalDevice * mDevice = nullptr;
+    const LogicalDevice* mDevice = nullptr;
     VkImageView mImageView;
     Image::ImageViewCreateInfo mInfo;
     friend class Image;
 
-    ImageView(const LogicalDevice * device, VkImageView view, 
-              const Image::ImageViewCreateInfo& info);
+    ImageView(const LogicalDevice* device, VkImageView view,
+        const Image::ImageViewCreateInfo& info);
     ImageView(const ImageView&) = delete;
     ImageView& operator=(const ImageView&) = delete;
     ImageView(ImageView&&) = delete;
