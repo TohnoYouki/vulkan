@@ -20,7 +20,7 @@ SwapChain::SwapChain(
 
 Image::ImageCreateInfo SwapChain::GetImageCreateInfo(
     const VkSwapchainCreateInfoKHR& info) {
-    Image::ImageCreateInfo result {
+    Image::ImageCreateInfo result{
         .imageType = VK_IMAGE_TYPE_2D,
         .format = info.imageFormat,
         .usage = info.imageUsage,
@@ -43,7 +43,7 @@ const Image::ImageCreateInfo& SwapChain::ImageInfo() const { return mInfo; }
 VkSwapchainCreateInfoKHR SwapChain::DefaultCreateInfo(
     const Surface* surface,
     const SwapChainCreateParams& params) {
-    return VkSwapchainCreateInfoKHR {
+    return VkSwapchainCreateInfoKHR{
         .sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
         .pNext = nullptr, .flags = 0,
         .surface = *surface,

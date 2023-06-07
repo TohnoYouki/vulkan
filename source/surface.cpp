@@ -12,7 +12,7 @@ bool Surface::PhysicalDeviceSupport(
     return static_cast<bool>(result);
 }
 
-Surface::SwapChainSupportDetails 
+Surface::SwapChainSupportDetails
 Surface::GetSwapChainSupportDetails(const PhysicalDevice* device) const {
     SwapChainSupportDetails result;
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(

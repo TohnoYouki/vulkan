@@ -1,12 +1,12 @@
 #include "logicaldevice.h"
 #include "pipelinelayout.h"
 
-PipelineLayout::PipelineLayout(const LogicalDevice* device, VkPipelineLayout layout):
+PipelineLayout::PipelineLayout(const LogicalDevice* device, VkPipelineLayout layout) :
     mDevice(device), mLayout(layout) {}
 
 PPipelineLayout PipelineLayout::CreatePipelineLayout(const LogicalDevice* device) {
     VkPipelineLayout layout;
-    VkPipelineLayoutCreateInfo info {
+    VkPipelineLayoutCreateInfo info{
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
         .pNext = nullptr, .flags = 0,
         .setLayoutCount = 0, .pSetLayouts = nullptr,

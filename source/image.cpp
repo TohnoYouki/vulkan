@@ -2,17 +2,17 @@
 #include "logicaldevice.h"
 
 Image::Image(const LogicalDevice* device, VkImage image, const ImageCreateInfo& info) :
-	mImage(image), mDevice(device), mInfo(info) {};
+    mImage(image), mDevice(device), mInfo(info) {};
 
 PImageView Image::CreateImageView(const ImageViewCreateInfo& info) const {
     VkFormat format = info.format == VK_FORMAT_UNDEFINED ? mInfo.format : info.format;
-    VkImageViewCreateInfo createInfo {
+    VkImageViewCreateInfo createInfo{
         .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
         .pNext = nullptr, .flags = 0,
-        .image = mImage, 
+        .image = mImage,
         .viewType = info.viewType,
         .format = format,
-        .components = info.components, 
+        .components = info.components,
         .subresourceRange = info.subresourceRange };
 
     VkImageView view;
@@ -33,8 +33,8 @@ ImageView::ImageView(const LogicalDevice* device, VkImageView view,
 
 const LogicalDevice* ImageView::GetDevice() const { return mDevice; };
 
-const Image::ImageViewCreateInfo& ImageView::ImageViewInfo() const { 
-    return mInfo; 
+const Image::ImageViewCreateInfo& ImageView::ImageViewInfo() const {
+    return mInfo;
 }
 
 ImageView::~ImageView() {

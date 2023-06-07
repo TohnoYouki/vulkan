@@ -2,7 +2,7 @@
 #include "graphicspipeline.h"
 
 GraphicsPipeline::GraphicsPipeline(
-    const LogicalDevice* device, VkPipeline pipeline):
+    const LogicalDevice* device, VkPipeline pipeline) :
     mDevice(device), mPipeline(pipeline) {}
 
 PGraphicsPipeline GraphicsPipeline::CreateGraphicsPipeline(

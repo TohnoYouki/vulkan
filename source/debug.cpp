@@ -59,9 +59,9 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugModes::DebugCallback(
 
 VkDebugUtilsMessengerCreateInfoEXT DebugModes::DebugMessengerCreateInfo(
     PFN_vkDebugUtilsMessengerCallbackEXT debugCallback) const {
-    return VkDebugUtilsMessengerCreateInfoEXT {
+    return VkDebugUtilsMessengerCreateInfoEXT{
         .sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT,
-        .pNext = nullptr, .flags = 0, 
+        .pNext = nullptr, .flags = 0,
         .messageSeverity = VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
                            VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
                            VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT,

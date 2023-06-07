@@ -2,7 +2,7 @@
 #include "physicaldevice.h"
 
 VkApplicationInfo Instance::DefaultApplicationCreateInfo(const char* name) {
-    return VkApplicationInfo {
+    return VkApplicationInfo{
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = name,
         .applicationVersion = VK_MAKE_VERSION(1, 0, 0),
