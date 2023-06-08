@@ -40,7 +40,8 @@ public:
 	static PCommandPool CreateCommandPool(
 		const LogicalDevice* device, VkCommandPoolCreateFlags flags, uint32_t family);
 
-	PCommandBuffer AllocateCommandBuffer(VkCommandBufferLevel level);
+	std::vector<PCommandBuffer> AllocateCommandBuffer(
+		VkCommandBufferLevel level, uint32_t number);
 
 	~CommandPool();
 };

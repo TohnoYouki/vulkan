@@ -1,7 +1,6 @@
 #pragma once
 #include <vector>
 #include "core.h"
-#include <iostream>
 #include <vulkan/vulkan.h>
 
 VkResult CreateDebugUtilsMessengerEXT(
