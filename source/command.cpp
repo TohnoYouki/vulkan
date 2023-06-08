@@ -37,18 +37,23 @@ PCommandPool CommandPool::CreateCommandPool(
 	return PCommandPool(new CommandPool(device, family, pool));
 }
 
-PCommandBuffer CommandPool::AllocateCommandBuffer(VkCommandBufferLevel level) {
+std::vector<PCommandBuffer> CommandPool::AllocateCommandBuffer(
+	VkCommandBufferLevel level, uint32_t number) {
 	VkCommandBufferAllocateInfo info{
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
 		.pNext = nullptr,
 		.commandPool = this->operator const VkCommandPool & (),
 		.level = level,
-		.commandBufferCount = 1
+		.commandBufferCount = number
 	};
-	VkCommandBuffer buffer;
-	auto result = vkAllocateCommandBuffers(*mDevice, &info, &buffer);
-	if (result != VK_SUCCESS) { return nullptr; }
-	return PCommandBuffer(new CommandBuffer(this, buffer));
+	std::vector<VkCommandBuffer> buffers(number);
+	std::vector<PCommandBuffer> pbuffers;
+	auto result = vkAllocateCommandBuffers(*mDevice, &info, buffers.data());
+	if (result != VK_SUCCESS) { return pbuffers; }
+	for (int i = 0; i < number; i++) {
+		pbuffers.emplace_back(new CommandBuffer(this, buffers[i]));
+	}
+	return pbuffers;
 }
 
 CommandPool::~CommandPool() {

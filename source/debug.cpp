@@ -1,5 +1,6 @@
 #include "debug.h"
 #include "instance.h"
+#include <iostream>
 
 DebugModes* DebugModes::mInstance = nullptr;
 
