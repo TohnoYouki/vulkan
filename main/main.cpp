@@ -6,6 +6,8 @@
 #include <stdexcept>
 #include <algorithm>
 #include "head.h"
+#include <glm/vec4.hpp>
+#include <glm/mat4x4.hpp>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
@@ -37,6 +39,8 @@ private:
     PRenderPass mRenderPass = nullptr;
     PPipelineLayout mPipelineLayout = nullptr;
     PGraphicsPipeline mGraphicsPipeline = nullptr;
+    PBuffer mBuffer = nullptr;
+    PDeviceMemory mMemory = nullptr;
     std::vector<PFrameBuffer> mFramebuffers;
     PCommandPool mCommandPool = nullptr;
     std::vector<PCommandBuffer> mCommandBuffers;
@@ -311,6 +315,17 @@ private:
         }
     }
 
+    struct VertexData {
+        glm::vec2 position;
+        glm::vec3 color;
+    };
+
+    const std::vector<VertexData> vertices = {
+        {{0.0f, -0.5f}, {1.0f, 0.5f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    };
+
     void CreateGraphicPipeline() {
         auto vertex = ShaderModule::CreateShaderModule(
             mLogicalDevice.get(), "shader_vert.spv");
@@ -323,13 +338,33 @@ private:
         { vertex->GetStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT),
           fragment->GetStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT) };
 
+        std::vector<VkVertexInputBindingDescription> inputBindings{
+            VkVertexInputBindingDescription {
+                .binding = 0, .stride = sizeof(VertexData),
+                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX
+            }
+        };
+
+        std::vector<VkVertexInputAttributeDescription> inputAttributes{
+            VkVertexInputAttributeDescription {
+                .location = 0, .binding = 0,
+                .format = VK_FORMAT_R32G32_SFLOAT,
+                .offset = offsetof(VertexData, position)
+            },
+            VkVertexInputAttributeDescription {
+                .location = 1, .binding = 0,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,
+                .offset = offsetof(VertexData, color)
+            }
+        };
+
         VkPipelineVertexInputStateCreateInfo vertexInput{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
             .pNext = nullptr, .flags = 0,
-            .vertexBindingDescriptionCount = 0,
-            .pVertexBindingDescriptions = nullptr,
-            .vertexAttributeDescriptionCount = 0,
-            .pVertexAttributeDescriptions = nullptr
+            .vertexBindingDescriptionCount = static_cast<uint32_t>(inputBindings.size()),
+            .pVertexBindingDescriptions = inputBindings.data(),
+            .vertexAttributeDescriptionCount = static_cast<uint32_t>(inputAttributes.size()),
+            .pVertexAttributeDescriptions = inputAttributes.data()
         };
         VkPipelineInputAssemblyStateCreateInfo inputAssembly{
             .sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
@@ -448,6 +483,39 @@ private:
         }
     }
 
+    void CreateVertexBuffers() {
+        uint32_t size = sizeof(VertexData) * vertices.size();
+        mBuffer = Buffer::CreateBuffer(
+            mLogicalDevice.get(), size,
+            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            std::vector<uint32_t>(mQueueFamily));
+        if (mBuffer == nullptr) {
+            throw std::runtime_error("failed to create a vertex buffer!");
+        }
+        auto requirements = mBuffer->GetMemoryRequirements();
+        size = requirements.size;
+        auto memories = mPhysicalDevice->GetMemoryProperties();
+        auto properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
+        int index = -1;
+        for (int i = 0; i < memories.memoryTypeCount; i++) {
+            if ((memories.memoryTypes[i].propertyFlags & properties) != properties) { continue; }
+            if (!(requirements.memoryTypeBits & (1 << i))) { continue; }
+            index = i; break;
+        }
+        if (index == -1) {
+            throw std::runtime_error("failed to find an appropriate memory for buffer!");
+        }
+        mMemory = DeviceMemory::AllocateDeviceMemory(mLogicalDevice.get(), size, index);
+        if (mMemory == nullptr) {
+            throw std::runtime_error("failed to allocate a device memory!");
+        }
+        vkBindBufferMemory(*mLogicalDevice, *mBuffer, *mMemory, 0);
+        void* data;
+        vkMapMemory(*mLogicalDevice, *mMemory, 0, size, 0, &data);
+        memcpy(data, vertices.data(), static_cast<size_t>(size));
+        vkUnmapMemory(*mLogicalDevice, *mMemory);
+    }
+
     void CreateCommandPoolAndBuffer() {
         mCommandPool = CommandPool::CreateCommandPool(mLogicalDevice.get(),
             VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, mQueueFamily);
@@ -497,6 +565,11 @@ private:
         vkCmdBeginRenderPass(*mCommandBuffers[currentFrame], &info, VK_SUBPASS_CONTENTS_INLINE);
         vkCmdBindPipeline(*mCommandBuffers[currentFrame], 
                           VK_PIPELINE_BIND_POINT_GRAPHICS, *mGraphicsPipeline);
+
+        VkDeviceSize offsets[] = { 0 };
+        vkCmdBindVertexBuffers(*mCommandBuffers[currentFrame], 0, 1, 
+            &(mBuffer->operator const VkBuffer & ()), offsets);
+      
         std::vector<VkViewport> viewports{
             VkViewport {
                 .x = 0.0f, .y = 0.0f,
@@ -516,7 +589,7 @@ private:
             static_cast<uint32_t>(viewports.size()), viewports.data());
         vkCmdSetScissor(*mCommandBuffers[currentFrame], 0,
             static_cast<uint32_t>(scissors.size()), scissors.data());
-        vkCmdDraw(*mCommandBuffers[currentFrame], 3, 1, 0, 0);
+        vkCmdDraw(*mCommandBuffers[currentFrame], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
         vkCmdEndRenderPass(*mCommandBuffers[currentFrame]);
         if (!mCommandBuffers[currentFrame]->End()) {
             throw std::runtime_error("failed to end a command buffer!");
@@ -553,6 +626,7 @@ private:
         CreatePipelineLayout();
         CreateGraphicPipeline();
         CreateFrameBuffers();
+        CreateVertexBuffers();
         CreateCommandPoolAndBuffer();
         CreateSyncObjects();
     }
