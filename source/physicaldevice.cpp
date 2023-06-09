@@ -18,6 +18,12 @@ PhysicalDevice::PhysicalDevice(
         mDevice, nullptr, &count, mExtensions.data());
 };
 
+VkPhysicalDeviceMemoryProperties PhysicalDevice::GetMemoryProperties() const {
+    VkPhysicalDeviceMemoryProperties properties;
+    vkGetPhysicalDeviceMemoryProperties(mDevice, &properties);
+    return properties;
+}
+
 bool PhysicalDevice::CheckExtensionsSupport(
     const std::vector<const char*>& extensions) const {
     std::set<std::string> required(
