@@ -13,3 +13,5 @@
 #include "framebuffer.h"
 #include "command.h"
 #include "synchronization.h"
+#include "buffer.h"
+#include "memory.h"

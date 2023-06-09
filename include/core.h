@@ -53,3 +53,9 @@ typedef std::unique_ptr<Semaphore> PSemaphore;
 
 class Fence;
 typedef std::unique_ptr<Fence> PFence;
+
+class Buffer;
+typedef std::unique_ptr<Buffer> PBuffer;
+
+class DeviceMemory;
+typedef std::unique_ptr<DeviceMemory> PDeviceMemory;

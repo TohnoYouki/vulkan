@@ -22,6 +22,8 @@ public:
 
     inline operator const VkPhysicalDevice& () const { return mDevice; }
 
+    VkPhysicalDeviceMemoryProperties GetMemoryProperties() const;
+
     bool CheckExtensionsSupport(
         const std::vector<const char*>& extensions) const;
 };
