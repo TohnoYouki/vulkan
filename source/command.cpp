@@ -11,10 +11,10 @@ void CommandBuffer::Reset() {
 	vkResetCommandBuffer(mCommandBuffer, 0);
 }
 
-bool CommandBuffer::Begin() {
+bool CommandBuffer::Begin(VkCommandBufferUsageFlags flag) {
 	VkCommandBufferBeginInfo info {
 		.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-		.pNext = nullptr, .flags = 0,
+		.pNext = nullptr, .flags = flag,
 		.pInheritanceInfo = nullptr
 	};
 	return vkBeginCommandBuffer(mCommandBuffer, &info) == VK_SUCCESS;
