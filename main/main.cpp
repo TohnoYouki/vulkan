@@ -39,8 +39,10 @@ private:
     PRenderPass mRenderPass = nullptr;
     PPipelineLayout mPipelineLayout = nullptr;
     PGraphicsPipeline mGraphicsPipeline = nullptr;
-    PBuffer mBuffer = nullptr;
-    PDeviceMemory mMemory = nullptr;
+    PBuffer mVertexBuffer = nullptr;
+    PDeviceMemory mVertexMemory = nullptr;
+    PBuffer mIndexBuffer = nullptr;
+    PDeviceMemory mIndexMemory = nullptr;
     std::vector<PFrameBuffer> mFramebuffers;
     PCommandPool mCommandPool = nullptr;
     std::vector<PCommandBuffer> mCommandBuffers;
@@ -321,9 +323,13 @@ private:
     };
 
     const std::vector<VertexData> vertices = {
-        {{0.0f, -0.5f}, {1.0f, 0.5f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    };
+    const std::vector<uint16_t> indices = {
+        0, 1, 2, 2, 3, 0
     };
 
     void CreateGraphicPipeline() {
@@ -483,39 +489,6 @@ private:
         }
     }
 
-    void CreateVertexBuffers() {
-        uint32_t size = sizeof(VertexData) * vertices.size();
-        mBuffer = Buffer::CreateBuffer(
-            mLogicalDevice.get(), size,
-            VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            std::vector<uint32_t>(mQueueFamily));
-        if (mBuffer == nullptr) {
-            throw std::runtime_error("failed to create a vertex buffer!");
-        }
-        auto requirements = mBuffer->GetMemoryRequirements();
-        size = requirements.size;
-        auto memories = mPhysicalDevice->GetMemoryProperties();
-        auto properties = VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT;
-        int index = -1;
-        for (int i = 0; i < memories.memoryTypeCount; i++) {
-            if ((memories.memoryTypes[i].propertyFlags & properties) != properties) { continue; }
-            if (!(requirements.memoryTypeBits & (1 << i))) { continue; }
-            index = i; break;
-        }
-        if (index == -1) {
-            throw std::runtime_error("failed to find an appropriate memory for buffer!");
-        }
-        mMemory = DeviceMemory::AllocateDeviceMemory(mLogicalDevice.get(), size, index);
-        if (mMemory == nullptr) {
-            throw std::runtime_error("failed to allocate a device memory!");
-        }
-        vkBindBufferMemory(*mLogicalDevice, *mBuffer, *mMemory, 0);
-        void* data;
-        vkMapMemory(*mLogicalDevice, *mMemory, 0, size, 0, &data);
-        memcpy(data, vertices.data(), static_cast<size_t>(size));
-        vkUnmapMemory(*mLogicalDevice, *mMemory);
-    }
-
     void CreateCommandPoolAndBuffer() {
         mCommandPool = CommandPool::CreateCommandPool(mLogicalDevice.get(),
             VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, mQueueFamily);
@@ -526,6 +499,109 @@ private:
             VK_COMMAND_BUFFER_LEVEL_PRIMARY, MAX_FRAMES_IN_FLIGHT);
         if (mCommandBuffers.size() == 0) {
             throw std::runtime_error("failed to create command buffers!");
+        }
+    }
+
+    int FindMemoryType(VkMemoryPropertyFlags properties, uint32_t memorybits) {
+        auto memories = mPhysicalDevice->GetMemoryProperties();
+        for (int i = 0; i < memories.memoryTypeCount; i++) {
+            if ((memories.memoryTypes[i].propertyFlags & properties) != properties) { continue; }
+            if (!(memorybits & (1 << i))) { continue; }
+            return i;
+        }
+        return -1;
+    }
+
+    bool CreateBuffer(uint32_t size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties,
+                      PBuffer* pbuffer, PDeviceMemory* pmemory) {
+        PBuffer buffer = Buffer::CreateBuffer(
+            mLogicalDevice.get(), size, usage, std::vector<uint32_t>(mQueueFamily));
+        if (buffer == nullptr) { return false; }
+        auto requirements = buffer->GetMemoryRequirements();
+        size = requirements.size;
+        int index = FindMemoryType(properties, requirements.memoryTypeBits);
+        if (index == -1) { return false; }
+        PDeviceMemory memory = DeviceMemory::AllocateDeviceMemory(mLogicalDevice.get(), size, index);
+        if (memory == nullptr) { return false; }
+        vkBindBufferMemory(*mLogicalDevice, *buffer, *memory, 0);
+        *pbuffer = std::move(buffer);
+        *pmemory = std::move(memory);
+        return true;
+    }
+
+    bool CopyBuffer(Buffer* source, Buffer* destination, uint32_t size) {
+        auto commandBuffers = mCommandPool->AllocateCommandBuffer(VK_COMMAND_BUFFER_LEVEL_PRIMARY, 1);
+        if (commandBuffers.size() <= 0) { return false; }
+        commandBuffers[0]->Begin(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+        VkBufferCopy region {
+            .srcOffset = 0,
+            .dstOffset = 0,
+            .size = size
+        };
+        vkCmdCopyBuffer(*(commandBuffers[0]), *source, *destination, 1, &region);
+        if (!commandBuffers[0]->End()) { return false; }
+        VkSubmitInfo submitInfo{
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext = nullptr,
+            .waitSemaphoreCount = 0, .pWaitSemaphores = nullptr,
+            .pWaitDstStageMask = nullptr, .commandBufferCount = 1,
+            .pCommandBuffers = &(commandBuffers[0]->operator const VkCommandBuffer & ()),
+            .signalSemaphoreCount = 0, .pSignalSemaphores = nullptr
+        };
+        if (vkQueueSubmit(mLogicalDevice->GetQueues()[0], 1, &submitInfo, nullptr) != VK_SUCCESS) {
+            return false;
+        }
+        vkQueueWaitIdle(mLogicalDevice->GetQueues()[0]);
+        return true;
+    }
+
+    void CreateIndexBuffers() {
+        uint32_t size = sizeof(uint16_t) * indices.size();
+        PBuffer stagingBuffer;
+        PDeviceMemory stagingMemory;
+        if (!CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | 
+                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
+                          &stagingBuffer, &stagingMemory)) {
+            throw std::runtime_error("failed to create staging buffer!");
+        }
+        void* data;
+        vkMapMemory(*mLogicalDevice, *stagingMemory, 0, size, 0, &data);
+        memcpy(data, indices.data(), static_cast<size_t>(size));
+        vkUnmapMemory(*mLogicalDevice, *stagingMemory);   
+        if (!CreateBuffer(size, VK_BUFFER_USAGE_INDEX_BUFFER_BIT | 
+                          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+                          &mIndexBuffer, &mIndexMemory)) {
+            throw std::runtime_error("failed to create ");
+        }
+        if (!CopyBuffer(stagingBuffer.get(), mIndexBuffer.get(), size)) {
+            throw std::runtime_error("failed to copy buffer!");
+        }   
+    }
+
+    void CreateVertexBuffers() {
+        uint32_t size = sizeof(VertexData) * vertices.size();
+        PBuffer stagingBuffer;
+        PDeviceMemory stagingMemory;
+        if (!CreateBuffer(size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                          VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | 
+                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT, 
+                          &stagingBuffer, &stagingMemory)) {
+            throw std::runtime_error("failed to create staging buffer!");
+        }
+        void* data;
+        vkMapMemory(*mLogicalDevice, *stagingMemory, 0, size, 0, &data);
+        memcpy(data, vertices.data(), static_cast<size_t>(size));
+        vkUnmapMemory(*mLogicalDevice, *stagingMemory);
+        if (!CreateBuffer(size, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | 
+                          VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+                          VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 
+                          &mVertexBuffer, &mVertexMemory)) {
+            throw std::runtime_error("failed to create ");
+        }
+        if (!CopyBuffer(stagingBuffer.get(), mVertexBuffer.get(), size)) {
+            throw std::runtime_error("failed to copy buffer!");
         }
     }
 
@@ -547,7 +623,7 @@ private:
 
     void RecordCommandBuffer(int index) {
         mCommandBuffers[currentFrame]->Reset();
-        if (!mCommandBuffers[currentFrame]->Begin()) {
+        if (!mCommandBuffers[currentFrame]->Begin(0)) {
             throw std::runtime_error("failed to begin a command buffer!");
         }
         VkClearValue clearColor = { {{0.0f, 0.0f, 0.0f, 1.0f}} };
@@ -568,7 +644,9 @@ private:
 
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(*mCommandBuffers[currentFrame], 0, 1, 
-            &(mBuffer->operator const VkBuffer & ()), offsets);
+            &(mVertexBuffer->operator const VkBuffer & ()), offsets);
+        vkCmdBindIndexBuffer(*mCommandBuffers[currentFrame], 
+            *mIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
       
         std::vector<VkViewport> viewports{
             VkViewport {
@@ -589,7 +667,8 @@ private:
             static_cast<uint32_t>(viewports.size()), viewports.data());
         vkCmdSetScissor(*mCommandBuffers[currentFrame], 0,
             static_cast<uint32_t>(scissors.size()), scissors.data());
-        vkCmdDraw(*mCommandBuffers[currentFrame], static_cast<uint32_t>(vertices.size()), 1, 0, 0);
+        vkCmdDrawIndexed(*mCommandBuffers[currentFrame], 
+            static_cast<uint32_t>(indices.size()), 1, 0, 0, 0);
         vkCmdEndRenderPass(*mCommandBuffers[currentFrame]);
         if (!mCommandBuffers[currentFrame]->End()) {
             throw std::runtime_error("failed to end a command buffer!");
@@ -626,8 +705,9 @@ private:
         CreatePipelineLayout();
         CreateGraphicPipeline();
         CreateFrameBuffers();
-        CreateVertexBuffers();
         CreateCommandPoolAndBuffer();
+        CreateVertexBuffers();
+        CreateIndexBuffers();
         CreateSyncObjects();
     }
 
