@@ -328,9 +328,9 @@ private:
 
     void CreateGraphicPipeline() {
         auto vertex = ShaderModule::CreateShaderModule(
-            mLogicalDevice.get(), "shader_vert.spv");
+            mLogicalDevice.get(), "./spv/shader_vert.spv");
         auto fragment = ShaderModule::CreateShaderModule(
-            mLogicalDevice.get(), "shader_frag.spv");
+            mLogicalDevice.get(), "./spv/shader_frag.spv");
         if (vertex == nullptr || fragment == nullptr) {
             throw std::runtime_error("failed to load shader module!");
         }
