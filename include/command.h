@@ -17,7 +17,7 @@ public:
 	inline operator const VkCommandBuffer& () const { return mCommandBuffer; }
 	
 	void Reset();
-	bool Begin();
+	bool Begin(VkCommandBufferUsageFlags flag);
 	bool End();
 
 	~CommandBuffer() {}
