@@ -1,5 +1,27 @@
 #pragma once
 #include "core.h"
+#include <vector>
+
+class DescriptorSetLayout {
+private:
+    const LogicalDevice* mDevice = nullptr;
+    VkDescriptorSetLayout mLayout = VK_NULL_HANDLE;
+
+    DescriptorSetLayout(
+        const LogicalDevice* device, VkDescriptorSetLayout layout);
+    DescriptorSetLayout(const DescriptorSetLayout&) = delete;
+    DescriptorSetLayout& operator=(const DescriptorSetLayout&) = delete;
+    DescriptorSetLayout(DescriptorSetLayout&&) = delete;
+    DescriptorSetLayout& operator=(DescriptorSetLayout&&) = delete;
+public:
+    inline operator const VkDescriptorSetLayout& () const { return mLayout; }
+
+    static PDescriptorSetLayout CreateDescriptorSetLayout(
+        const LogicalDevice* device, 
+        const std::vector<VkDescriptorSetLayoutBinding>& bindings);
+    
+    ~DescriptorSetLayout();
+};
 
 class PipelineLayout {
 private:
@@ -14,7 +36,9 @@ private:
 public:
     inline operator const VkPipelineLayout& () const { return mLayout; }
 
-    static PPipelineLayout CreatePipelineLayout(const LogicalDevice* device);
+    static PPipelineLayout CreatePipelineLayout(
+        const LogicalDevice* device, 
+        const std::vector<VkDescriptorSetLayout>& setLayouts);
 
     ~PipelineLayout();
 };

@@ -59,3 +59,12 @@ typedef std::unique_ptr<Buffer> PBuffer;
 
 class DeviceMemory;
 typedef std::unique_ptr<DeviceMemory> PDeviceMemory;
+
+class DescriptorSetLayout;
+typedef std::unique_ptr<DescriptorSetLayout> PDescriptorSetLayout;
+
+class DescriptorPool;
+typedef std::unique_ptr<DescriptorPool> PDescriptorPool;
+
+class DescriptorSet;
+typedef std::unique_ptr<DescriptorSet> PDescriptorSet;
