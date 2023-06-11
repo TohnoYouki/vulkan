@@ -1,13 +1,15 @@
+#define GLM_FORCE_RADIANS
 #include <map>
 #include <limits>
 #include <memory>
+#include <chrono>
 #include <iostream>
 #include <optional> 
 #include <stdexcept>
 #include <algorithm>
 #include "head.h"
-#include <glm/vec4.hpp>
-#include <glm/mat4x4.hpp>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <vulkan/vulkan.h>
@@ -37,12 +39,20 @@ private:
     PSwapChain mSwapChain = nullptr;
     std::vector<PImageView> mSwapChainImageViews;
     PRenderPass mRenderPass = nullptr;
+    PDescriptorSetLayout mDescriptorSetLayout = nullptr;
     PPipelineLayout mPipelineLayout = nullptr;
     PGraphicsPipeline mGraphicsPipeline = nullptr;
+
     PBuffer mVertexBuffer = nullptr;
     PDeviceMemory mVertexMemory = nullptr;
     PBuffer mIndexBuffer = nullptr;
     PDeviceMemory mIndexMemory = nullptr;
+    std::vector<PBuffer> mUniformBuffers;
+    std::vector<PDeviceMemory> mUniformMemories;
+    std::vector<void *> mUniformDatas;
+    PDescriptorPool mDescriptorPool = nullptr;
+    std::vector<PDescriptorSet> mDescriptorSets;
+    
     std::vector<PFrameBuffer> mFramebuffers;
     PCommandPool mCommandPool = nullptr;
     std::vector<PCommandBuffer> mCommandBuffers;
@@ -51,6 +61,26 @@ private:
     std::vector<PFence> mInFlightFences;
 
     const bool mEnableValidationLaryers = true;
+
+    struct VertexData {
+        glm::vec2 position;
+        glm::vec3 color;
+    };
+    struct UniformBufferObject {
+        glm::mat4 model;
+        glm::mat4 view;
+        glm::mat4 proj;
+    };
+
+    const std::vector<VertexData> vertices = {
+        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+    };
+    const std::vector<uint16_t> indices = {
+        0, 1, 2, 2, 3, 0
+    };
 
     static void framebufferResizeCallback(GLFWwindow* window, int width, int height) {
         auto application = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
@@ -311,26 +341,27 @@ private:
     }
 
     void CreatePipelineLayout() {
-        mPipelineLayout = PipelineLayout::CreatePipelineLayout(mLogicalDevice.get());
+        std::vector<VkDescriptorSetLayoutBinding> bindings {
+            VkDescriptorSetLayoutBinding {
+                .binding = 0,
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount = 1,
+                .stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+                .pImmutableSamplers = nullptr
+            }
+        };
+        mDescriptorSetLayout = DescriptorSetLayout::CreateDescriptorSetLayout(
+            mLogicalDevice.get(), bindings);
+        if (mDescriptorSetLayout == nullptr) {
+            throw std::runtime_error("failed to create a descriptor set layout!");
+        }
+        auto setLayouts = std::vector<VkDescriptorSetLayout>{ *mDescriptorSetLayout };
+        mPipelineLayout = PipelineLayout::CreatePipelineLayout(
+            mLogicalDevice.get(), setLayouts);
         if (mPipelineLayout == nullptr) {
-            throw std::runtime_error("failed to create a pipeline layout");
+            throw std::runtime_error("failed to create a pipeline layout!");
         }
     }
-
-    struct VertexData {
-        glm::vec2 position;
-        glm::vec3 color;
-    };
-
-    const std::vector<VertexData> vertices = {
-        {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-        {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-        {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-        {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
-    };
-    const std::vector<uint16_t> indices = {
-        0, 1, 2, 2, 3, 0
-    };
 
     void CreateGraphicPipeline() {
         auto vertex = ShaderModule::CreateShaderModule(
@@ -405,7 +436,7 @@ private:
             .rasterizerDiscardEnable = VK_FALSE,
             .polygonMode = VK_POLYGON_MODE_FILL,
             .cullMode = VK_CULL_MODE_BACK_BIT,
-            .frontFace = VK_FRONT_FACE_CLOCKWISE,
+            .frontFace = VK_FRONT_FACE_COUNTER_CLOCKWISE,
             .depthBiasEnable = false,
             .depthBiasConstantFactor = 0.0f,
             .depthBiasClamp = 0.0f,
@@ -580,6 +611,44 @@ private:
         }   
     }
 
+    void CreateDescriptorPool() {
+        std::vector<VkDescriptorPoolSize> poolSizes {
+            VkDescriptorPoolSize {
+                .type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount = static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT)
+            }
+        };
+        mDescriptorPool = DescriptorPool::CreateDescriptorPool(mLogicalDevice.get(),
+            static_cast<uint32_t>(MAX_FRAMES_IN_FLIGHT), poolSizes);
+        if (mDescriptorPool == nullptr) {
+            throw std::runtime_error("failed to create a descriptor pool!");
+        }
+        std::vector<VkDescriptorSetLayout> layouts { 
+            *mDescriptorSetLayout, *mDescriptorSetLayout };
+        mDescriptorSets = mDescriptorPool->AllocateDescriptorSets(layouts);
+        if (mDescriptorSets.size() == 0) {
+            throw std::runtime_error("failed to allocate descriptor sets!");
+        }
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            VkDescriptorBufferInfo bufferInfo {
+                .buffer = *(mUniformBuffers[i]),
+                .offset = 0, .range = sizeof(UniformBufferObject)
+            };
+            VkWriteDescriptorSet writeInfo {
+                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+                .pNext = nullptr,
+                .dstSet = *(mDescriptorSets[i]),
+                .dstBinding = 0, .dstArrayElement = 0,
+                .descriptorCount = 1, 
+                .descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .pImageInfo = nullptr, 
+                .pBufferInfo = &bufferInfo, 
+                .pTexelBufferView = nullptr
+            };
+            vkUpdateDescriptorSets(*mLogicalDevice, 1, &writeInfo, 0, nullptr);
+        }
+    }
+
     void CreateVertexBuffers() {
         uint32_t size = sizeof(VertexData) * vertices.size();
         PBuffer stagingBuffer;
@@ -602,6 +671,28 @@ private:
         }
         if (!CopyBuffer(stagingBuffer.get(), mVertexBuffer.get(), size)) {
             throw std::runtime_error("failed to copy buffer!");
+        }
+    }
+
+    void CreateUniformBuffers() {
+        uint32_t size = sizeof(UniformBufferObject);
+        mUniformBuffers.clear();
+        mUniformMemories.clear();
+        mUniformDatas.clear();
+        for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+            PBuffer buffer;
+            PDeviceMemory memory;
+            void * data;
+            if (!CreateBuffer(size, VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT | 
+                              VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT,
+                              &buffer, &memory)) {
+                throw std::runtime_error("failed to create uniform buffer!");
+            }
+            vkMapMemory(*mLogicalDevice, *memory, 0, size, 0, &data);
+            mUniformBuffers.push_back(std::move(buffer));
+            mUniformMemories.push_back(std::move(memory));
+            mUniformDatas.push_back(data);
         }
     }
 
@@ -645,6 +736,10 @@ private:
         VkDeviceSize offsets[] = { 0 };
         vkCmdBindVertexBuffers(*mCommandBuffers[currentFrame], 0, 1, 
             &(mVertexBuffer->operator const VkBuffer & ()), offsets);
+        vkCmdBindDescriptorSets(*mCommandBuffers[currentFrame], 
+            VK_PIPELINE_BIND_POINT_GRAPHICS, *mPipelineLayout, 0, 1, 
+            &(mDescriptorSets[currentFrame]->operator const VkDescriptorSet &()), 
+            0, 0);
         vkCmdBindIndexBuffer(*mCommandBuffers[currentFrame], 
             *mIndexBuffer, 0, VK_INDEX_TYPE_UINT16);
       
@@ -708,7 +803,30 @@ private:
         CreateCommandPoolAndBuffer();
         CreateVertexBuffers();
         CreateIndexBuffers();
+        CreateUniformBuffers();
+        CreateDescriptorPool();
         CreateSyncObjects();
+    }
+
+    void UpdateUniformBuffer(uint32_t index) {
+        static auto startTime = std::chrono::high_resolution_clock::now();
+        auto currentTime = std::chrono::high_resolution_clock::now();
+        float time = std::chrono::duration<float, std::chrono::seconds::period>(
+            currentTime - startTime).count();
+        UniformBufferObject ubo {
+            .model = glm::rotate(glm::mat4(1.0f), 
+                     time * glm::radians(90.0f), 
+                     glm::vec3(0.0f, 0.0f, 1.0f)),
+            .view = glm::lookAt(glm::vec3(2.0f, 2.0f, 2.0f), 
+                    glm::vec3(0.0f, 0.0f, 0.0f),
+                    glm::vec3(0.0f, 0.0f, 1.0f)),
+            .proj = glm::perspective(glm::radians(45.0f),
+                    mSwapChain->ImageInfo().extent.width /
+                    (float)mSwapChain->ImageInfo().extent.height, 
+                    0.1f, 10.0f)
+        };
+        ubo.proj[1][1] *= -1;
+        memcpy(mUniformDatas[index], &ubo, sizeof(UniformBufferObject));
     }
 
     void DrawFrame() {
@@ -726,6 +844,8 @@ private:
         }
 
         vkResetFences(*mLogicalDevice, 1, fence);
+
+        UpdateUniformBuffer(currentFrame);
         RecordCommandBuffer(index);
         VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
         VkSubmitInfo submitInfo{
